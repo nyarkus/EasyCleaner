@@ -10,8 +10,11 @@ class Program
     float size = 0;
     Int64 count = 0;
     string userName = Environment.UserName;
+    bool keeplogs = true;
     static void Main(string[] args)
     {
+        bool openlog = false;
+
         Program p = new Program();
         if (!System.IO.File.Exists("Custom Paths.txt"))
         {
@@ -19,9 +22,10 @@ class Program
         }
         if (!System.IO.File.Exists("Settings.txt"))
         {
-            System.IO.File.WriteAllText("Settings.txt", "StartWithWindows=true");
+            System.IO.File.WriteAllText("Settings.txt", "StartWithWindows=true\r\nOpetMiniLogAfterCleanUp=false\r\nKeepLogs=true");
         }
         string[] settings = System.IO.File.ReadAllLines("Settings.txt");
+        if (settings[1].Replace("OpetMiniLogAfterCleanUp=", "") == "true") openlog = true;
         if (settings[0].Replace("StartWithWindows=","") == "true")
         {
             if(!System.IO.File.Exists(@$"C:\Users\{p.userName}\AppData\Roaming\Microsoft\Windows\Start Menu\Programs\Startup\EasyCleaner.url"))
@@ -33,7 +37,8 @@ class Program
         {
             if (System.IO.File.Exists(@$"C:\Users\{p.userName}\AppData\Roaming\Microsoft\Windows\Start Menu\Programs\Startup\EasyCleaner.url")) System.IO.File.Delete(@$"C:\Users\{p.userName}\AppData\Roaming\Microsoft\Windows\Start Menu\Programs\Startup\EasyCleaner.url");
         }
-        p.Log("(INFO)Loading custom paths...");
+        if (settings[2].Replace("KeepLogs=","") == "false") p.keeplogs= false;
+        p.Log("(INFO)Загрузка кастомных путей...");
         string[] paths = System.IO.File.ReadAllLines("Custom Paths.txt");
         foreach(string s in paths)
         {
@@ -65,17 +70,30 @@ class Program
             p.size += ssize;
             p.count++;
         }
-        p.Log($"(INFO)All path has been cleaning");
+        p.Log($"(INFO)Все пути успешно очищены");
         Console.ForegroundColor = ConsoleColor.Yellow;
-        p.Log($"(INFO)Deleted {p.count} Files with size {p.size / 1024 / 1024} MB");
+        p.Log($"(INFO)Удалено {p.count} Файлов весом {p.size / 1024 / 1024} MB");
         Console.ResetColor();
-        System.IO.File.AppendAllText("Log.txt", $"[{DateTime.Now}]   Deleted {p.count} Files with size {p.size / 1024 / 1024} MB\r\n");
+        System.IO.File.AppendAllText("Log.txt", $"[{DateTime.Now}]   Удалено {p.count} файлов весом {p.size / 1024 / 1024} MB\r\n");
+        if (openlog)
+        {
+            System.IO.File.WriteAllText("MiniLog.txt", $"Удалено {p.count} Файлов весом {p.size / 1024 / 1024} MB");
+            Process process= new Process();
+            process.StartInfo.FileName = "notepad.exe";
+            process.StartInfo.Arguments = $@"{Directory.GetCurrentDirectory()}\MiniLog.txt";
+            process.Start();
+            p.Log("(WARNING) Программа закроется после закрытия текстового документа");
+            while (!process.HasExited);
+            System.IO.File.Delete($@"{Directory.GetCurrentDirectory()}\MiniLog.txt");
+            
+        }
 
     }
+
     void CleanUpD(string path)
     {
         Console.ForegroundColor = ConsoleColor.Green;
-        Log($"(LOG)Cleanup {path}...");
+        Log($"(LOG)Очистка {path}...");
         Console.ResetColor();
         string[] todelete = {""};
         try
@@ -87,7 +105,7 @@ class Program
             if(ex is System.UnauthorizedAccessException)
             {
                 Console.ForegroundColor = ConsoleColor.Red;
-                Log("(WARNING)You must run this program with administrator rights!");
+                Log("(WARNING)Запустите программу с правами администратора для очистки этого путя!");
                 Console.ResetColor();
                 return;
             }
@@ -168,9 +186,9 @@ class Program
 
             }
         }
-        Log($"(INFO){path} has been cleaning");
+        Log($"(INFO){path} очищен");
         Console.ForegroundColor = ConsoleColor.Yellow;
-        Log($"(INFO)Deleted {localcount} Files with size {localsize / 1024 / 1024} MB");
+        Log($"(INFO)Удалено {localcount} Файлов размером {localsize / 1024 / 1024} MB");
         Console.ResetColor();
     }
     private void CreateShortcut()
@@ -186,7 +204,7 @@ class Program
     }
     private void Log(string m)
     {
-        System.IO.File.AppendAllText("Log.txt", $"[{DateTime.Now}] {m}\r\n");
+        if(keeplogs) System.IO.File.AppendAllText("Log.txt", $"[{DateTime.Now}] {m}\r\n");
         if (m.StartsWith("(LOG)"))
         {
             Console.ForegroundColor= ConsoleColor.White;
